@@ -28,5 +28,5 @@ ansible-playbook main.yml
 ```
 - Install Nixos
 ```
-nixos-install --no-root-passwd
+sudo nixos-install --no-root-passwd
 ```
