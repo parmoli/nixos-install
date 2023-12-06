@@ -24,9 +24,9 @@ vim main.yml
 ```
 - Run the playbook
 ```
-sudo ansible-playbook main.yml
+ansible-playbook main.yml
 ```
 - Install Nixos
 ```
-nix-install --no-root-passwd
+nixos-install --no-root-passwd
 ```
