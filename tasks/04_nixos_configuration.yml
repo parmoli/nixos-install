@@ -1,0 +1,94 @@
+---
+- name: Non-free packages and firmwares
+  ansible.builtin.lineinfile:
+    path: /mnt/etc/nixos/configuration.nix
+    insertafter: '^(.*)boot.loader.efi.canTouchEfiVariables = true;$'
+    line: '{{ item }}'
+  with_items:
+    - '  hardware.enableAllFirmware = true;'
+    - '  nixpkgs.config.allowUnfree = true;'
+    - "\n  # Enable non free packages and firmwares"
+
+- name: Boot
+  ansible.builtin.lineinfile:
+    path: /mnt/etc/nixos/configuration.nix
+    insertafter: '^(.*)boot.loader.efi.canTouchEfiVariables = true;$'
+    line: '{{ item }}'
+  with_items:
+    - '  boot.kernelPackages = pkgs.linuxPackages_latest;'
+    - '  boot.supportedFilesystems = [ "btrfs" ];'
+
+- name: Network manager
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/configuration.nix
+    regexp: '^(.*)# networking.networkmanager.enable = true;(.*)$'
+    replace: '\1networking.networkmanager.enable = true;'
+
+- name: Hostname
+  ansible.builtin.lineinfile:
+    path: /mnt/etc/nixos/configuration.nix
+    insertafter: '^(.*)networking.networkmanager.enable = true;$'
+    line: '  networking.hostName = "{{ hostname }}";'
+
+- name: Timezone
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/configuration.nix
+    regexp: '^(.*)# time.timeZone = "Europe/Amsterdam";$'
+    replace: '\1time.timeZone = "[{{ timezone }}]";'
+
+- name: Locale
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/configuration.nix
+    regexp: '^(.*)# i18n.defaultLocale = "en_US.UTF-8";$'
+    replace: '\1i18n.defaultLocale = "{{ locale}}";'
+
+- name: Layout
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/configuration.nix
+    regexp: '^(.*)# services.xserver.layout = "us";$'
+    replace: '\1services.xserver.layout = "fr";'
+
+- name: Sound
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/configuration.nix
+    regexp: '^(.*)# sound.enable = true;$'
+    replace: '\1sound.enable = true;'
+
+- name: Pulseaudio
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/configuration.nix
+    regexp: '^(.*)# hardware.pulseaudio.enable = true;$'
+    replace: '\1hardware.pulseaudio.enable = true;'
+
+- name: Touchpad
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/configuration.nix
+    regexp: '^(.*)# services.xserver.libinput.enable = true;$'
+    replace: '\1services.xserver.libinput.enable = true;'
+
+- name: Compute user password
+  ansible.builtin.shell: echo {{ user_password }} | mkpasswd --stdin --method=sha-512
+  register: encrypted_user_password
+
+- name: User
+  ansible.builtin.lineinfile:
+    path: /mnt/etc/nixos/configuration.nix
+    insertafter: '^(.*)# Define a user account.(.*)$'
+    line: '{{ item }}'
+  with_items:
+    - '  };'
+    - '    hashedPassword = "{{ encrypted_user_password.stdout }}";'
+    - '    extraGroups = [ "wheel" ];'
+    - '    isNormalUser = true;'
+    - '  users.users.{{ user_name }} = {'
+
+- name: System wide packages
+  ansible.builtin.lineinfile:
+    path: /mnt/etc/nixos/configuration.nix
+    insertafter: '^(.*)# \$ nix search wget(.*)$'
+    line: '{{ item }}'
+  with_items:
+    - '  ];'
+    - '    wget'
+    - '    vim'
+    - '  environment.systemPackages = with pkgs; ['

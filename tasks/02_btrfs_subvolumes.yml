@@ -1,0 +1,54 @@
+---
+- name: Temporary mount the btrfs partition
+  ansible.posix.mount:
+    path: /mnt
+    src: /dev/lvm/root
+    fstype: btrfs
+    state: ephemeral
+
+- name: Delete eventual existing btrfs subvolumes (get subvolume list)
+  ansible.builtin.shell: btrfs subvolume list /mnt
+  register: subvolumes_list
+
+- name: Delete eventual existing btrfs subvolumes
+  ansible.builtin.shell: btrfs subvolume delete -c /mnt/{{ item | regex_search("\w*") }}
+  loop: '{{ subvolumes_list.stdout_lines }}'
+
+- name: Create btrfs subvolumes
+  ansible.builtin.shell: |
+    btrfs subvolume create /mnt/root
+    btrfs subvolume create /mnt/home
+    btrfs subvolume create /mnt/nix
+    btrfs subvolume create /mnt/persist
+    btrfs subvolume create /mnt/log
+
+- name: Take a "readonly" snapshot of the root-volume (to rollback to every boot)
+  ansible.builtin.shell: btrfs subvolume snapshot -r /mnt/root /mnt/root-blank
+
+- name: Unmount the root partition
+  ansible.posix.mount:
+    path: /mnt
+    state: unmounted
+
+- name: Mount the root subvolume
+  ansible.builtin.shell: |
+    mount -o subvol=root,noatime,compress=zstd:1,autodefrag,space_cache=v2 /dev/lvm/root /mnt
+
+- name: Create the necessary folders to mount the subvolumes
+  ansible.builtin.shell: |
+    mkdir -p /mnt/home
+    mkdir -p /mnt/nix
+    mkdir -p /mnt/persist
+    mkdir -p /mnt/var/log
+
+- name: Mount the btrfs subvolumes
+  ansible.builtin.shell: |
+    mount -o subvol=home,noatime,compress=zstd:1,autodefrag,space_cache=v2 /dev/lvm/root /mnt/home
+    mount -o subvol=nix,noatime,compress=zstd:1,autodefrag,space_cache=v2 /dev/lvm/root /mnt/nix
+    mount -o subvol=persist,noatime,compress=zstd:1,autodefrag,space_cache=v2 /dev/lvm/root /mnt/persist
+    mount -o subvol=log,noatime,compress=zstd:1,autodefrag,space_cache=v2 /dev/lvm/root /mnt/var/log
+
+- name: Mount the boot_partition
+  ansible.builtin.shell: |
+    mkdir -p /mnt/boot
+    mount {{ boot_partition }} /mnt/boot

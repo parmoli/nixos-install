@@ -1,0 +1,37 @@
+---
+- name: Generate nixos configuration files
+  ansible.builtin.shell: nixos-generate-config --force --root /mnt
+
+- name: Set mounting options for all subvolumes
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/hardware-configuration.nix
+    regexp: '^(.*)("subvol=\w+")(.*)$'
+    replace: '\1\2 "compress=zstd:1" "noatime" "autodefrag" "space_cache=v2"\3'
+
+- name: Set neededForBoot option for /persist and /var/log subvolumes
+  ansible.builtin.replace:
+    path: /mnt/etc/nixos/hardware-configuration.nix
+    regexp: '^(.*)(fileSystems."/(?:persist|var/log)" =[^}]*)$'
+    replace: '\1\2\n      neededForBoot = true;'
+
+- name: Get luks partition uuid
+  ansible.builtin.shell: sudo lsblk -f -ro label,uuid | grep xroot |  cut -d' ' -f 2
+  register: luks_partition_uuid
+
+- name: Mount luks partition
+  ansible.builtin.lineinfile:
+    path: /mnt/etc/nixos/hardware-configuration.nix
+    insertafter: '^(.*)boot.extraModulePackages = \[ \];$'
+    line: '{{ item }}'
+  with_items:
+    - "    };\n  };"
+    - '      preLVM = true;'
+    - '      device = "/dev/disk/by-uuid/{{ luks_partition_uuid.stdout }}";'
+    - '    root = {'
+    - '  boot.initrd.luks.devices = {'
+
+- name: Set cpu governor to powersave
+  ansible.builtin.lineinfile:
+    path: /mnt/etc/nixos/hardware-configuration.nix
+    insertbefore: '^}$'
+    line: '  powerManagement.cpuFreqGovernor = lib.mkDefault "powersave";'

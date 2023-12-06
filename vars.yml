@@ -1,0 +1,16 @@
+---
+## DISK
+# Select the drive to install the system on
+# Use lsbk or fdisk -l to get information on available devices
+target_device: /dev/nvme0n1
+encryption_passphrase: myEncryptionPassPhrase
+
+## CONFIG
+timezone: Europe/Paris
+locale: fr_FR.UTF-8
+hostname: nixhost
+domain: nixdomain
+
+## USER
+user_name: nix
+user_password: nix
